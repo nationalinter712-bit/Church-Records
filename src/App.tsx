@@ -11,6 +11,7 @@ import { createAttendanceEvent, createMember, createMemberNote, getChurchMembers
 import { supabase, supabaseConfigured } from './lib/supabase'
 import type { AttendanceEvent, ChurchMembership, DocumentRecord, Member } from './lib/types'
 import LoginScreen from './components/LoginScreen'
+import PasswordRecoveryScreen from './components/PasswordRecoveryScreen'
 
 const initialMembers: Member[] = [
   { id: 'CR-1048', name: 'Eleanor Pena', email: 'eleanor.pena@email.com', phone: '(415) 555-0184', family: 'The Penas', role: 'Member', joined: 'Mar 12, 2021', status: 'Active', initials: 'EP', color: 'lilac', lastSeen: 'Today', notes: ['Prefers email contact', 'Volunteers with the welcome team'] },
@@ -39,6 +40,7 @@ function App() {
   const [attendanceEvents, setAttendanceEvents] = useState<AttendanceEvent[]>([])
   const [documents, setDocuments] = useState<DocumentRecord[]>([])
   const [session, setSession] = useState<import('@supabase/supabase-js').Session | null>(null)
+  const [passwordRecovery, setPasswordRecovery] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery')
   const [membership, setMembership] = useState<ChurchMembership | null>(null)
   const [authLoading, setAuthLoading] = useState(supabaseConfigured)
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
@@ -79,7 +81,8 @@ function App() {
       setSession(data.session)
       setAuthLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
       setWorkspaceError('')
       setWorkspaceLoading(Boolean(nextSession))
       setSession(nextSession)
@@ -303,6 +306,7 @@ function App() {
   const displayName = session?.user.user_metadata.full_name ?? session?.user.email?.split('@')[0] ?? 'Jordan Davis'
   const initials = displayName.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase() || 'JD'
 
+  if (supabaseConfigured && supabase && passwordRecovery && session) return <PasswordRecoveryScreen client={supabase} onContinue={() => setPasswordRecovery(false)} />
   if (authLoading || workspaceLoading) return <div className="auth-loading"><div className="brand-mark"><BookOpen size={19} /></div><span>Opening your church workspace...</span></div>
   if (supabaseConfigured && !session && supabase) return <LoginScreen client={supabase} />
   if (supabaseConfigured && session && !membership && !workspaceError) return <div className="auth-loading"><div className="brand-mark"><BookOpen size={19} /></div><span>Checking church workspace access...</span></div>

@@ -8,7 +8,7 @@ A responsive member-records workspace built with React, Vite, TypeScript, Tailwi
 2. Run `npm install`.
 3. Open the ignored local `.env.local` file and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from your Supabase project's API settings. These are browser-safe values; never put a service-role key in a `VITE_` variable.
 4. Link the Supabase CLI to your project with `supabase link --project-ref YOUR_PROJECT_REF`, then apply migrations with `supabase db push`; alternatively, run the migration in the Supabase SQL editor.
-5. In Supabase **Authentication → Users**, create the administrator user and set their password. In **Authentication → URL Configuration**, allow `http://localhost:5173` as a redirect URL for local development.
+5. In Supabase **Authentication → Users**, create the administrator user and set their password. In **Authentication → URL Configuration**, use `http://localhost:5173` as the Site URL while testing locally, and add `http://localhost:5173/**` to Redirect URLs. For production, add the actual deployed Vercel origin (not an unassigned/404 hostname) to Redirect URLs.
 6. In the SQL editor, edit and run `supabase/setup-first-owner.sql` once, replacing `admin@yourchurch.org` and `Your Church Name`. It verifies that the Auth user exists before creating the church and owner membership.
 7. Set `GOOGLE_CLOUD_VISION_API_KEY` in the Vercel serverless environment to enable OCR for scanned JPEG, PNG, and WebP images. PDFs upload privately but OCR is currently image-only.
 8. Restart `npm run dev` after saving `.env.local`; verify with `npm run build` and `npm run lint`.
@@ -51,3 +51,5 @@ The Vite variables must match the server-side Supabase URL and anon key. Redeplo
 ## Current scope
 
 Member search/filtering, family grouping, attendance history display, administrator notes, private document upload, sign-in, and session sign-out are implemented. Preview charts, document rows, and summary totals are illustrative. Production member records and notes come from Supabase. OCR requires Google Cloud Vision API enablement and a server-side key. Before production use, add a tested administrator provisioning workflow, operational audit logging, data export/deletion procedures, and automated RLS integration tests for the church's policies and retention obligations.
+
+For password recovery, open Church Records on the origin you intend to use, select **Forgot password?**, and request a fresh link. Open the newest email promptly; recovery links are single-use and expire. Supabase redirects to the app origin that requested the link, where the new password can be set.
