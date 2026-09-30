@@ -6,11 +6,12 @@ A responsive member-records workspace built with React, Vite, TypeScript, Tailwi
 
 1. Install Node.js 20.19+ or 22.12+ and npm.
 2. Run `npm install`.
-3. Copy `.env.example` to `.env.local` and enter your Supabase project values. `VITE_` values are public browser configuration; never put a service-role key in a `VITE_` variable.
+3. Open the ignored local `.env.local` file and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from your Supabase project's API settings. These are browser-safe values; never put a service-role key in a `VITE_` variable.
 4. Link the Supabase CLI to your project with `supabase link --project-ref YOUR_PROJECT_REF`, then apply migrations with `supabase db push`; alternatively, run the migration in the Supabase SQL editor.
-5. Create the first church and provision invited users as described below.
-6. Set `GOOGLE_CLOUD_VISION_API_KEY` to enable OCR for scanned JPEG, PNG, and WebP images. PDFs upload privately but OCR is currently image-only.
-7. Run `npm run dev`; verify with `npm run build` and `npm run lint`.
+5. In Supabase **Authentication → Users**, create the administrator user and set their password. In **Authentication → URL Configuration**, allow `http://localhost:5173` as a redirect URL for local development.
+6. In the SQL editor, edit and run `supabase/setup-first-owner.sql` once, replacing `admin@yourchurch.org` and `Your Church Name`. It verifies that the Auth user exists before creating the church and owner membership.
+7. Set `GOOGLE_CLOUD_VISION_API_KEY` in the Vercel serverless environment to enable OCR for scanned JPEG, PNG, and WebP images. PDFs upload privately but OCR is currently image-only.
+8. Restart `npm run dev` after saving `.env.local`; verify with `npm run build` and `npm run lint`.
 
 Without Supabase browser variables the app opens in an explicitly labeled preview. Do not enter real member information in preview mode.
 
