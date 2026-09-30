@@ -1,6 +1,6 @@
 # Church Records
 
-A responsive member-records workspace built with React, Vite, TypeScript, Tailwind CSS, Supabase Auth, Postgres, and private Supabase Storage. The preview workspace is sample data only; changes in preview mode are not saved. Adding Supabase environment values switches the app to invite-only authentication and disables sample records.
+A responsive member-records workspace built with React, Vite, TypeScript, Tailwind CSS, Supabase Auth, Postgres, and private Supabase Storage. The local preview is empty and never seeds fictitious members; it shows only records loaded from Supabase. Changes in preview mode are not saved. Adding Supabase environment values switches the app to invite-only authentication.
 
 ## Local setup
 
@@ -13,7 +13,7 @@ A responsive member-records workspace built with React, Vite, TypeScript, Tailwi
 7. Set `GOOGLE_CLOUD_VISION_API_KEY` in the Vercel serverless environment to enable OCR for scanned JPEG, PNG, and WebP images. PDFs upload privately but OCR is currently image-only.
 8. Restart `npm run dev` after saving `.env.local`; verify with `npm run build` and `npm run lint`.
 
-Without Supabase browser variables the app opens in an explicitly labeled preview. Do not enter real member information in preview mode.
+Without Supabase browser variables the app opens in an explicitly labeled, empty preview. It does not load or retain member records. Connect Supabase before entering real member information.
 
 ## Supabase and access control
 
