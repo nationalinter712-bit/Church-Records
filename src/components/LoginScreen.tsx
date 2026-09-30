@@ -28,8 +28,16 @@ export default function LoginScreen({ client }: { client: SupabaseClient }) {
     const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin,
     })
-    if (resetError) setError('We could not send a password reset email. Check your address and try again.')
-    else setNotice('If an account exists for that email, a password reset link is on its way. Open the newest email promptly.')
+    if (resetError) {
+      const message = resetError.message.toLowerCase()
+      if (message.includes('redirect') || message.includes('url')) {
+        setError('Supabase rejected the return address. In Authentication → URL Configuration, add http://localhost:5173/** to Redirect URLs, save, then try again.')
+      } else if (message.includes('rate limit') || message.includes('too many')) {
+        setError('Supabase is limiting password emails. Wait a few minutes, then request one new link.')
+      } else {
+        setError(`Supabase could not send the reset email: ${resetError.message}`)
+      }
+    } else setNotice('If an account exists for that email, a password reset link is on its way. Open the newest email promptly.')
     setLoading(false)
   }
 
