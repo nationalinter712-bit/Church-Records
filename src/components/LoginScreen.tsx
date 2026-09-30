@@ -31,7 +31,7 @@ export default function LoginScreen({ client }: { client: SupabaseClient }) {
     if (resetError) {
       const message = resetError.message.toLowerCase()
       if (message.includes('redirect') || message.includes('url')) {
-        setError('Supabase rejected the return address. In Authentication → URL Configuration, add http://localhost:5173/** to Redirect URLs, save, then try again.')
+        setError(`Supabase rejected the return address (${resetError.message}). Confirm the app and dashboard use project iwzlpxhincxzwqafqmlg, and allow http://localhost:5173 under Authentication → URL Configuration → Redirect URLs.`)
       } else if (message.includes('rate limit') || message.includes('too many')) {
         setError('Supabase is limiting password emails. Wait a few minutes, then request one new link.')
       } else {
