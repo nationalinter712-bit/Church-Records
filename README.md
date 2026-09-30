@@ -6,7 +6,7 @@ A responsive member-records workspace built with React, Vite, TypeScript, Tailwi
 
 1. Install Node.js 20.19+ or 22.12+ and npm.
 2. Run `npm install`.
-3. Open the ignored local `.env.local` file and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from your Supabase project's API settings. These are browser-safe values; never put a service-role key in a `VITE_` variable.
+3. Open the ignored local `.env.local` file and fill in `VITE_SUPABASE_URL` with the **Project URL root** (`https://<project-ref>.supabase.co`), not a Data API endpoint such as one ending in `/rest/v1/`. Set `VITE_SUPABASE_ANON_KEY` from the project's publishable (or legacy anon) key. These are browser-safe values; never put a service-role key in a `VITE_` variable.
 4. Link the Supabase CLI to your project with `supabase link --project-ref YOUR_PROJECT_REF`, then apply migrations with `supabase db push`; alternatively, run the migration in the Supabase SQL editor.
 5. In Supabase **Authentication → Users**, create the administrator user and set their password. In **Authentication → URL Configuration**, use `http://localhost:5173` as the Site URL while testing locally, and add `http://localhost:5173/**` to Redirect URLs. For production, add the actual deployed Vercel origin (not an unassigned/404 hostname) to Redirect URLs.
 6. In the SQL editor, edit and run `supabase/setup-first-owner.sql` once, replacing `admin@yourchurch.org` and `Your Church Name`. It verifies that the Auth user exists before creating the church and owner membership.
