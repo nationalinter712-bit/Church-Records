@@ -8,6 +8,10 @@ type OcrApiResponse = {
   json(body: unknown): void
 }
 
+type NodeRuntime = typeof globalThis & {
+  process: { env: Record<string, string | undefined> }
+  Buffer: { from(value: ArrayBuffer): { toString(encoding: 'base64'): string } }
+}
 export default async function handler(request: OcrApiRequest, response: OcrApiResponse) {
   response.setHeader('Cache-Control', 'no-store')
   response.setHeader('Vary', 'Origin')
@@ -27,9 +31,10 @@ export default async function handler(request: OcrApiRequest, response: OcrApiRe
 
   const authorization = request.headers.authorization
   const token = typeof authorization === 'string' ? authorization.match(/^Bearer\s+(.+)$/i)?.[1] : undefined
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
-  const visionApiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY
+  const runtime = globalThis as NodeRuntime
+  const supabaseUrl = runtime.process.env.SUPABASE_URL
+  const supabaseAnonKey = runtime.process.env.SUPABASE_ANON_KEY
+  const visionApiKey = runtime.process.env.GOOGLE_CLOUD_VISION_API_KEY
   if (!token) return response.status(401).json({ error: 'Sign in to process this document.' })
   if (!supabaseUrl || !supabaseAnonKey) return response.status(503).json({ error: 'Document processing is not configured.' })
 
@@ -65,7 +70,7 @@ export default async function handler(request: OcrApiRequest, response: OcrApiRe
 
     const { data: file, error: fileError } = await client.storage.from('church-documents').download(document.storage_path)
     if (fileError || !file) return response.status(404).json({ error: 'The private document could not be read.' })
-    const content = Buffer.from(await file.arrayBuffer()).toString('base64')
+    const content = runtime.Buffer.from(await file.arrayBuffer()).toString('base64')
     const visionResponse = await fetch('https://vision.googleapis.com/v1/images:annotate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': visionApiKey },
