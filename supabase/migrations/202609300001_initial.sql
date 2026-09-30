@@ -338,7 +338,7 @@ using (
   bucket_id = 'church-documents'
   and (
     public.has_church_role(((storage.foldername(name))[1])::uuid, array['owner', 'admin'])
-    or (owner_id = (select auth.uid())
+    or (owner_id = (select auth.uid()::text)
       and public.has_church_role(((storage.foldername(name))[1])::uuid, array['staff']))
   )
 );
