@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AttendanceEvent, ChurchMembership, DocumentRecord, Member, MemberStatus } from './types'
+import type { AttendanceEvent, ChurchMembership, DocumentRecord, DocumentSource, Member, MemberProfileDetails, MemberStatus } from './types'
 
 const avatarColors = ['lilac', 'peach', 'blue', 'green', 'yellow', 'pink', 'mint', 'lavender']
 
@@ -26,7 +26,7 @@ export async function getChurchMembership(client: SupabaseClient, userId: string
 export async function listMembers(client: SupabaseClient, churchId: string): Promise<Member[]> {
   const [memberResult, noteResult] = await Promise.all([
     client.from('members')
-      .select('id, record_code, first_name, last_name, email, phone, membership_status, joined_at, member_role, family_id, families(name)')
+      .select('id, record_code, first_name, last_name, email, phone, membership_status, joined_at, member_role, family_id, profile_details, families(name)')
       .eq('church_id', churchId)
       .is('archived_at', null)
       .order('last_name', { ascending: true }),
@@ -51,6 +51,7 @@ export async function listMembers(client: SupabaseClient, churchId: string): Pro
     const name = `${row.first_name} ${row.last_name}`.trim()
     const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
     const status = row.membership_status === 'active' ? 'Active' : row.membership_status === 'visitor' ? 'Visitor' : 'Inactive'
+    const profile = (row.profile_details ?? {}) as Partial<MemberProfileDetails>
     return {
       id: row.id,
       recordCode: row.record_code,
@@ -67,6 +68,33 @@ export async function listMembers(client: SupabaseClient, churchId: string): Pro
       color: avatarColors[index % avatarColors.length],
       lastSeen: 'Not recorded',
       notes: notesByMember.get(row.id) ?? [],
+      profile: {
+        address: profile.address ?? '',
+        dateFiled: profile.dateFiled ?? null,
+        contactNumber: profile.contactNumber ?? '',
+        gender: profile.gender ?? '',
+        birthdate: profile.birthdate ?? null,
+        citizenship: profile.citizenship ?? '',
+        birthplace: profile.birthplace ?? '',
+        civilStatus: profile.civilStatus ?? '',
+        spouse: profile.spouse ?? '',
+        children: Array.isArray(profile.children) ? profile.children : [],
+        father: profile.father ?? '',
+        mother: profile.mother ?? '',
+        emergencyContactPerson: profile.emergencyContactPerson ?? '',
+        emergencyContactPhone: profile.emergencyContactPhone ?? '',
+        elementarySchool: profile.elementarySchool ?? '',
+        highSchool: profile.highSchool ?? '',
+        college: profile.college ?? '',
+        degreeCourse: profile.degreeCourse ?? '',
+        dateOfSalvation: profile.dateOfSalvation ?? null,
+        dateOfBaptism: profile.dateOfBaptism ?? null,
+        dateOfMembership: profile.dateOfMembership ?? null,
+        currentChurchPosition: profile.currentChurchPosition ?? '',
+        ministryInterests: Array.isArray(profile.ministryInterests) ? profile.ministryInterests : [],
+        otherSkills: profile.otherSkills ?? '',
+        specialSkills: profile.specialSkills ?? '',
+      },
     }
   })
 }
@@ -94,7 +122,7 @@ export async function listAttendanceEvents(client: SupabaseClient, churchId: str
 
 export async function listDocuments(client: SupabaseClient, churchId: string): Promise<DocumentRecord[]> {
   const { data, error } = await client.from('documents')
-    .select('id, member_id, storage_path, original_file_name, created_at, mime_type, ocr_status, ocr_text, members(first_name, last_name)')
+    .select('id, member_id, storage_path, original_file_name, created_at, mime_type, source, ocr_status, ocr_text, members(first_name, last_name)')
     .eq('church_id', churchId)
     .order('created_at', { ascending: false })
     .limit(100)
@@ -110,6 +138,7 @@ export async function listDocuments(client: SupabaseClient, churchId: string): P
       memberName: member ? `${member.first_name} ${member.last_name}`.trim() : 'Unlinked document',
       createdAt: document.created_at,
       mimeType: document.mime_type,
+      source: (document.source ?? 'upload') as DocumentSource,
       ocrStatus: document.ocr_status,
       ocrText: document.ocr_text,
     }
@@ -124,6 +153,7 @@ export async function createMember(client: SupabaseClient, churchId: string, nam
     last_name: lastNameParts.join(' ') || firstName,
     email: email || null,
     membership_status: 'visitor',
+    profile_details: {},
   }).select('id, record_code').single()
   if (error) throw error
   return { id: data.id as string, recordCode: data.record_code as string }
@@ -139,7 +169,7 @@ export async function createMemberNote(client: SupabaseClient, churchId: string,
   if (error) throw error
 }
 
-export async function uploadMemberDocument(client: SupabaseClient, churchId: string, memberId: string, file: File) {
+export async function uploadMemberDocument(client: SupabaseClient, churchId: string, memberId: string, file: File, source: DocumentSource = 'upload') {
   const safeName = file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100)
   const storagePath = `${churchId}/${memberId}/${crypto.randomUUID()}-${safeName}`
   const { error: uploadError } = await client.storage.from('church-documents').upload(storagePath, file, {
@@ -156,6 +186,7 @@ export async function uploadMemberDocument(client: SupabaseClient, churchId: str
     original_file_name: file.name,
     mime_type: file.type,
     byte_size: file.size,
+    source,
     ocr_status: 'pending',
   }).select('id').single()
 
@@ -180,7 +211,7 @@ export async function runDocumentOcr(accessToken: string, documentId: string) {
   return result.text ?? ''
 }
 
-export async function updateMember(client: SupabaseClient, churchId: string, memberId: string, values: { name: string; email: string; phone: string; status: MemberStatus }) {
+export async function updateMember(client: SupabaseClient, churchId: string, memberId: string, values: { name: string; email: string; phone: string; status: MemberStatus; profile?: MemberProfileDetails }) {
   const [firstName, ...lastNameParts] = values.name.trim().split(/\s+/)
   const { error } = await client.from('members').update({
     first_name: firstName,
@@ -188,6 +219,7 @@ export async function updateMember(client: SupabaseClient, churchId: string, mem
     email: values.email.trim() || null,
     phone: values.phone.trim() || null,
     membership_status: values.status.toLowerCase(),
+    profile_details: values.profile ?? {},
   }).eq('id', memberId).eq('church_id', churchId)
   if (error) throw error
 }

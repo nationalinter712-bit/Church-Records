@@ -5,11 +5,11 @@ declare
 begin
   select id into admin_user_id
   from auth.users
-  where lower(email) = lower('admin@yourchurch.org')
+  where lower(email) = lower('unlimitedtrialboss@gmail.com')
   limit 1;
 
   if admin_user_id is null then
-    raise exception 'No Auth user found for admin@yourchurch.org. Invite or create that user in Supabase Auth first, then replace the email in this script.';
+    raise exception 'No Auth user found for unlimitedtrialboss@gmail.com. Create that user in Supabase Auth first.';
   end if;
 
   if exists (
@@ -20,7 +20,7 @@ begin
   end if;
 
   insert into public.churches (name)
-  values ('Your Church Name')
+  values ('IHBC')
   returning id into new_church_id;
 
   insert into public.church_memberships (church_id, user_id, role)

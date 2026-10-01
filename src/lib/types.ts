@@ -1,5 +1,33 @@
 export type MemberStatus = 'Active' | 'Visitor' | 'Inactive'
 
+export type MemberProfileDetails = {
+  address?: string
+  dateFiled?: string | null
+  contactNumber?: string
+  gender?: string
+  birthdate?: string | null
+  citizenship?: string
+  birthplace?: string
+  civilStatus?: string
+  spouse?: string
+  children?: string[]
+  father?: string
+  mother?: string
+  emergencyContactPerson?: string
+  emergencyContactPhone?: string
+  elementarySchool?: string
+  highSchool?: string
+  college?: string
+  degreeCourse?: string
+  dateOfSalvation?: string | null
+  dateOfBaptism?: string | null
+  dateOfMembership?: string | null
+  currentChurchPosition?: string
+  ministryInterests?: string[]
+  otherSkills?: string
+  specialSkills?: string
+}
+
 export type Member = {
   id: string
   recordCode?: string
@@ -14,6 +42,7 @@ export type Member = {
   color: string
   lastSeen: string
   notes: string[]
+  profile: MemberProfileDetails
 }
 
 export type ChurchMembership = {
@@ -30,6 +59,8 @@ export type AttendanceEvent = {
   memberIds: string[]
 }
 
+export type DocumentSource = 'upload' | 'scan'
+
 export type DocumentRecord = {
   id: string
   memberId: string | null
@@ -38,6 +69,7 @@ export type DocumentRecord = {
   memberName: string
   createdAt: string
   mimeType: string
+  source: DocumentSource
   ocrStatus: 'pending' | 'processing' | 'completed' | 'failed' | 'not_supported'
   ocrText: string | null
 }

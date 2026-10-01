@@ -136,6 +136,7 @@ function App() {
         email: editEmail,
         phone: editPhone,
         status: editStatus,
+        profile: selectedMember.profile,
       })
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Could not save member changes')
@@ -149,6 +150,7 @@ function App() {
       phone: editPhone.trim() || 'No phone added',
       status: editStatus,
       initials: name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase(),
+      profile: selectedMember.profile,
     }
     setMembers((current) => current.map((member) => member.id === selectedMember.id ? updatedMember : member))
     setShowEdit(false)
@@ -244,6 +246,7 @@ function App() {
       color: 'mint',
       lastSeen: 'Not recorded',
       notes: [],
+      profile: {},
     }
     setMembers((current) => [member, ...current])
     setSelectedId(member.id)
@@ -274,7 +277,7 @@ function App() {
     notify('Note saved to member record')
   }
 
-  async function handleDocument(file?: File) {
+  async function handleDocument(file?: File, source: 'upload' | 'scan' = 'upload') {
     if (!file) return
     if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       notify('Use a PDF, JPEG, PNG, or WebP document')
@@ -289,12 +292,14 @@ function App() {
       return
     }
     try {
-      const documentId = await uploadMemberDocument(supabase, membership.churchId, selectedMember.id, file)
+      const documentId = await uploadMemberDocument(supabase, membership.churchId, selectedMember.id, file, source)
       setDocuments(await listDocuments(supabase, membership.churchId))
-      notify('Document uploaded privately. Starting OCR...')
+      const actionLabel = source === 'scan' ? 'Scan saved privately. Starting OCR...' : 'Document uploaded privately. Starting OCR...'
+      notify(actionLabel)
       await runDocumentOcr(session.access_token, documentId)
       setDocuments(await listDocuments(supabase, membership.churchId))
-      notify('Document uploaded and text extracted securely')
+      const successLabel = source === 'scan' ? 'Scan saved and text extracted securely' : 'Document uploaded and text extracted securely'
+      notify(successLabel)
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Document upload or OCR failed')
     }
@@ -348,7 +353,7 @@ function App() {
             <StatCard icon={<FileText size={17} />} title="Needs follow-up" value={members.filter((member) => member.notes.length > 0).length.toLocaleString()} trend="Members with private notes" accent="blue" />
           </section>
 
-          {activePage === 'Attendance' ? <AttendanceView events={attendanceEvents} memberCount={activeMemberCount} canManage={canManage} onRecord={() => { setAttendanceDate(new Date().toISOString().slice(0, 10)); setAttendingIds([]); setShowAttendance(true) }} /> : activePage === 'Families' ? <FamiliesView members={members} onSelect={(id) => { setSelectedId(id); setActivePage('Members') }} /> : activePage === 'Documents' ? <DocumentsView documents={documents} canUpload={canManage} selectedMemberName={selectedMember?.name} onOpen={(id) => { void openDocument(id) }} onViewOcr={(id) => setOcrDocument(documents.find((document) => document.id === id) ?? null)} /> : activePage === 'Notes' ? <NotesView members={members} onSelect={(id) => { setSelectedId(id); setActivePage('Members') }} /> : <>
+          {activePage === 'Attendance' ? <AttendanceView events={attendanceEvents} memberCount={activeMemberCount} canManage={canManage} onRecord={() => { setAttendanceDate(new Date().toISOString().slice(0, 10)); setAttendingIds([]); setShowAttendance(true) }} /> : activePage === 'Families' ? <FamiliesView members={members} onSelect={(id) => { setSelectedId(id); setActivePage('Members') }} /> : activePage === 'Documents' ? <DocumentsView documents={documents} canUpload={canManage} selectedMemberName={selectedMember?.name} onOpen={(id) => { void openDocument(id) }} onViewOcr={(id) => setOcrDocument(documents.find((document) => document.id === id) ?? null)} onScan={() => document.getElementById('document-scan')?.click()} /> : activePage === 'Notes' ? <NotesView members={members} onSelect={(id) => { setSelectedId(id); setActivePage('Members') }} /> : <>
             <section className="directory-panel">
               <div className="panel-head"><div><h2>{activePage === 'Overview' ? 'Recently added members' : 'Member directory'}</h2><p>Showing {filteredMembers.length} of {members.length} records</p></div><button className="icon-button filter-button" aria-label="Filter members"><SlidersHorizontal size={18} /></button></div>
               <div className="directory-controls"><div className="search-wrap"><Search size={17} /><input aria-label="Search members" placeholder="Search by name, family, or ID..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} /><kbd>⌘ K</kbd></div><div className="filter-select"><SlidersHorizontal size={15} /><select aria-label="Filter by member status" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1) }}><option>All members</option><option>Active</option><option>Visitor</option><option>Inactive</option></select><ChevronDown size={14} /></div><select className="button button-filter" aria-label="Filter by member status" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1) }}><option>All members</option><option>Active</option><option>Visitor</option><option>Inactive</option></select></div>
@@ -375,7 +380,8 @@ function App() {
       {showAttendance && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAttendance(false) }}><form className="add-modal attendance-modal" onSubmit={saveAttendance}><div className="modal-head"><div className="modal-icon"><CalendarDays size={19} /></div><button type="button" className="icon-button" aria-label="Close dialog" onClick={() => setShowAttendance(false)}><X size={19} /></button></div><h2>Record attendance</h2><p>Save a gathering and the members who were present.</p><label>Gathering name<input required value={attendanceType} onChange={(event) => setAttendanceType(event.target.value)} /></label><label>Gathering date<input required type="date" value={attendanceDate} onChange={(event) => setAttendanceDate(event.target.value)} /></label><div className="attendee-select-head"><b>Present members</b><button type="button" onClick={() => setAttendingIds(attendingIds.length === members.length ? [] : members.map((member) => member.id))}>{attendingIds.length === members.length ? 'Clear all' : 'Select all'}</button></div><div className="attendee-list">{members.map((member) => <label className="attendee-option" key={member.id}><input type="checkbox" checked={attendingIds.includes(member.id)} onChange={(event) => setAttendingIds((current) => event.target.checked ? [...current, member.id] : current.filter((id) => id !== member.id))} /><span className={`avatar avatar-${member.color}`}>{member.initials}</span><span>{member.name}</span><small>{member.family}</small></label>)}</div><div className="modal-actions"><button type="button" className="button button-outline" onClick={() => setShowAttendance(false)}>Cancel</button><button type="submit" className="button button-primary"><Check size={16} /> Save attendance</button></div></form></div>}
       {ocrDocument && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOcrDocument(null) }}><section className="add-modal ocr-modal" role="dialog" aria-modal="true" aria-labelledby="ocr-title"><div className="modal-head"><div className="modal-icon"><Sparkles size={19} /></div><button type="button" className="icon-button" aria-label="Close extracted text" onClick={() => setOcrDocument(null)}><X size={19} /></button></div><h2 id="ocr-title">Extracted text</h2><p>{ocrDocument.name} · {ocrDocument.memberName}</p>{ocrDocument.ocrText ? <pre className="ocr-text">{ocrDocument.ocrText}</pre> : <div className="empty-state"><FileText size={22} /><b>No text was detected</b><span>The scan may be blank or difficult to read.</span></div>}</section></div>}
       {toast && <div className="toast"><span><Check size={15} /></span>{toast}</div>}
-      <input className="hidden-input" id="document-upload" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { void handleDocument(event.target.files?.[0]); event.currentTarget.value = '' }} />
+      <input className="hidden-input" id="document-upload" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => { void handleDocument(event.target.files?.[0], 'upload'); event.currentTarget.value = '' }} />
+      <input className="hidden-input" id="document-scan" type="file" accept="image/*" capture="environment" onChange={(event) => { void handleDocument(event.target.files?.[0], 'scan'); event.currentTarget.value = '' }} />
     </div>
   )
 }
@@ -416,8 +422,8 @@ function FamiliesView({ members, onSelect }: { members: Member[]; onSelect: (id:
   return <section className="directory-panel secondary-view"><div className="panel-head"><div><h2>Households</h2><p>Family groups help keep relationships connected.</p></div><button className="button button-outline"><SlidersHorizontal size={15} /> Filter</button></div><div className="family-grid">{families.slice(0, 6).map(([family, people]) => <button className="family-card" key={family} onClick={() => onSelect(people[0].id)}><div className="family-card-head"><div className="family-icon"><Home size={18} /></div><MoreHorizontal size={17} /></div><b>{family}</b><span>{people.length} {people.length === 1 ? 'member' : 'members'}</span><div className="family-people">{people.slice(0, 4).map((person) => <span className={`avatar avatar-${person.color}`} key={person.id}>{person.initials}</span>)}</div><div className="family-card-foot">{people.slice(0, 2).map((person) => person.name.split(' ')[0]).join(' & ')} <ChevronRight size={14} /></div></button>)}{families.length === 0 && <div className="empty-state"><Home size={22} /><b>No family records yet</b><span>Households will appear here when members are assigned to families.</span></div>}</div></section>
 }
 
-function DocumentsView({ documents, canUpload, selectedMemberName, onOpen, onViewOcr }: { documents: DocumentRecord[]; canUpload: boolean; selectedMemberName?: string; onOpen: (documentId: string) => void; onViewOcr: (documentId: string) => void }) {
-  return <section className="directory-panel secondary-view"><div className="panel-head"><div><h2>Church documents</h2><p>Private files linked to member profiles.</p></div>{canUpload && <label htmlFor="document-upload" className="button button-primary upload-trigger"><Upload size={16} /> Upload document</label>}</div>{canUpload && <label htmlFor="document-upload" className="drop-zone"><div className="drop-icon"><FileImage size={21} /></div><b>Scan or upload a document</b><span>{selectedMemberName ? `Linked to ${selectedMemberName}` : 'Choose a member before uploading'} · PDF, JPG, PNG, or WebP · Up to 12 MB</span><span className="capture-link"><FileImage size={14} /> On mobile, capture with camera</span></label>}<div className="document-list">{documents.map((document) => { const kind = document.mimeType === 'application/pdf' ? 'PDF' : 'IMAGE'; const date = new Date(`${document.createdAt.slice(0, 10)}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }); return <div className="document-row" key={document.id}><button className="document-row-button" onClick={() => onOpen(document.id)} aria-label={`Open private document ${document.name}`}><span className={`doc-type doc-${kind.toLowerCase()}`}><FileText size={18} /></span><span className="document-row-name"><b>{document.name}</b><small>{document.memberName} · {date}</small></span></button><span className={`doc-tag tag-${document.ocrStatus}`}>{document.ocrStatus === 'completed' ? <><Sparkles size={11} /> OCR processed</> : document.ocrStatus.replace('_', ' ')}</span>{document.ocrStatus === 'completed' && <button className="row-more" aria-label={`View extracted text from ${document.name}`} title="View extracted text" onClick={() => onViewOcr(document.id)}><Sparkles size={15} /></button>}</div> })}{documents.length === 0 && <div className="empty-state"><FileText size={22} /><b>No documents yet</b><span>Privately uploaded member documents will appear here.</span></div>}</div></section>
+function DocumentsView({ documents, canUpload, selectedMemberName, onOpen, onViewOcr, onScan }: { documents: DocumentRecord[]; canUpload: boolean; selectedMemberName?: string; onOpen: (documentId: string) => void; onViewOcr: (documentId: string) => void; onScan: () => void }) {
+  return <section className="directory-panel secondary-view"><div className="panel-head"><div><h2>Church documents</h2><p>Private files linked to member profiles.</p></div>{canUpload && <div className="document-actions"><button type="button" className="button button-outline" onClick={onScan}><FileImage size={15} /> Scan now</button><label htmlFor="document-upload" className="button button-primary upload-trigger"><Upload size={16} /> Upload document</label></div>}</div>{canUpload && <div className="drop-zone-wrap"><label htmlFor="document-upload" className="drop-zone"><div className="drop-icon"><FileImage size={21} /></div><b>Upload a document</b><span>{selectedMemberName ? `Linked to ${selectedMemberName}` : 'Choose a member before uploading'} · PDF, JPG, PNG, or WebP · Up to 12 MB</span><span className="capture-link"><FileImage size={14} /> Use file picker</span></label><button type="button" className="drop-zone scanner-zone" onClick={onScan}><div className="drop-icon"><Sparkles size={18} /></div><b>Scan with camera</b><span>For mobile scans or printed forms · image capture is stored privately</span><span className="capture-link"><Sparkles size={14} /> Open document scanner</span></button></div>}<div className="document-list">{documents.map((document) => { const kind = document.mimeType === 'application/pdf' ? 'PDF' : 'IMAGE'; const date = new Date(`${document.createdAt.slice(0, 10)}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }); return <div className="document-row" key={document.id}><button className="document-row-button" onClick={() => onOpen(document.id)} aria-label={`Open private document ${document.name}`}><span className={`doc-type doc-${kind.toLowerCase()}`}><FileText size={18} /></span><span className="document-row-name"><b>{document.name}</b><small>{document.memberName} · {date} · {document.source === 'scan' ? 'Camera scan' : 'Upload'}</small></span></button><span className={`doc-tag tag-${document.ocrStatus}`}>{document.ocrStatus === 'completed' ? <><Sparkles size={11} /> OCR processed</> : document.ocrStatus.replace('_', ' ')}</span>{document.ocrStatus === 'completed' && <button className="row-more" aria-label={`View extracted text from ${document.name}`} title="View extracted text" onClick={() => onViewOcr(document.id)}><Sparkles size={15} /></button>}</div> })}{documents.length === 0 && <div className="empty-state"><FileText size={22} /><b>No documents yet</b><span>Privately uploaded member documents will appear here.</span></div>}</div></section>
 }
 
 function NotesView({ members, onSelect }: { members: Member[]; onSelect: (id: string) => void }) {
